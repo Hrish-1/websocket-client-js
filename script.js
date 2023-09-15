@@ -1,35 +1,17 @@
-const data = [
-  {
-    className: "container",
-    imgPath: "",
-    content: "Hello. How are you today?",
-  },
-  {
-    className: "container darker",
-    imgPath: "",
-    content: "Hey! I'm fine. Thanks for asking!",
-  },
-  {
-    className: "container",
-    imgPath: "",
-    content: "Sweet! So, what do you wanna do today?",
-  },
-  {
-    className: "container darker",
-    imgPath: "",
-    content: "Nah, I dunno. Play soccer.. or learn more coding perhaps?",
-  },
-]
-
-function generateUniqSerial() {  
-    return 'xxxx-xxxx-xxx-xxxx'.replace(/[x]/g, () => {  
-        const r = Math.floor(Math.random() * 16);  
-        return r.toString(16);  
-  });  
-}
-
 const userId = generateUniqSerial()
-console.log(userId)
+let input = document.getElementById('chat')
+let button = document.getElementById('btn')
+let conn = connect()
+let chatContainer = document.getElementById('chat-container')
+
+const style = (node, styles) => Object.keys(styles).forEach(key => node.style[key] = styles[key])
+
+function generateUniqSerial() {
+  return 'xxxx-xxxx-xxx-xxxx'.replace(/[x]/g, () => {
+    const r = Math.floor(Math.random() * 16);
+    return r.toString(16);
+  });
+}
 
 function connect() {
   let connection = new WebSocket(`ws://localhost:8080/subscriptions/${userId}/party`)
@@ -38,12 +20,10 @@ function connect() {
   }
   connection.onmessage = (event) => {
     const x = {
-      className: "container",
-      imgPath: "",
+      className: "bubble",
       content: event.data
     }
-    chatContainer.appendChild(htmlToElement(createChatContainer(x)))
-    console.log(event.data)
+    chatContainer.appendChild(createChatBubble(x))
   }
   connection.onerror = (event) => {
     console.log(event, "Error")
@@ -51,20 +31,16 @@ function connect() {
   return connection
 }
 
-let input = document.getElementById('chat')
-let button = document.getElementById('btn')
-let conn = connect()
-let chatContainer = document.getElementById('chat-container')
-chatContainer.innerHTML = data.map(createChatContainer).join(" ")
-
 button.addEventListener('click', () => {
-  conn.send(input.value)
+  conn.send(JSON.stringify({ "clientId": userId, "message": input.value }))
   input.value = ""
 })
 
-window.addEventListener('beforeunload', () => {
-  // conn.close(0, 'client closed')
-  fetch(`http://localhost:8080/ws/${userId}/party`)
+input.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') {
+    conn.send(JSON.stringify({ "clientId": userId, "message": input.value }))
+    input.value = ""
+  }
 })
 
 function htmlToElement(html) {
@@ -74,10 +50,21 @@ function htmlToElement(html) {
     .firstElementChild
 }
 
-function createChatContainer({ className, imgPath, content }) {
-  return `<div class="${className}">
-  <img src="${imgPath}" alt="Avatar" style="width:100%;">
-  <p>${content}</p>
-  <span class="time-right">11:00</span>
-  </div>`;
+
+function createChatBubble({ className, content }) {
+  const data = JSON.parse(content);
+  const sent = data.clientId == userId
+  const div = `<div>
+     <div class="${className} ${!sent ? "darker" : ""}">
+       <p>${data.message}</p>
+       <span>${new Date().getHours()}:${new Date().getMinutes()}</span>
+    </div>
+  </div>`
+  const node = htmlToElement(div)
+  const styles = {
+    display: 'flex',
+    justifyContent: sent ? 'end' : 'start'
+  }
+  style(node, styles)
+  return node
 }
